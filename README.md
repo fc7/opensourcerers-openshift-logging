@@ -2,36 +2,37 @@
 
 ![Logging](images/logging.jpg)
 
-*By Robert Baumgartner, Red Hat Austria, Janurary 2025 (OpenShift 4.17, OpenShift Logging 6.1)*
+*By Robert Baumgartner, Red Hat Austria, January 2025 (OpenShift 4.17, OpenShift Logging 6.1)*
 
 In this blog, I will guide you on
 
 - How to install Loki as storage for OpenShift Logging using MinIO as an object store
 
-- How to install OpenShift Logging using the Loki stack
+- How to install OpenShift Logging using the LokiStack
 
-- How to install OpenShift console UIPlugin and use it
+- How to install and use the OpenShift console UIPlugin
 
-OpenShift Logging is a powerful and flexible logging solution for OpenShift, built on top of the Vector and Loki project. It provides a unified approach to collecting, aggregating, and analyzing logs from various sources within an OpenShift cluster, such as container images, cluster nodes, and the Kubernetes API server.
+OpenShift Logging is a powerful and flexible logging solution for OpenShift, built on top of the Vector and Loki projects. It provides a unified approach to collecting, aggregating, and analyzing logs from various sources within an OpenShift cluster, such as container images, cluster nodes, and the Kubernetes API server.
 
-OpenShift Logging was based on the Elastic, Fluentd, and Kibana project in the previous version.
+In previous versions, OpenShift Logging was based on the Elastic, Fluentd, and Kibana projects (EFK stack).
 
-You need to be a cluster admin to follow this guide.
+In order to follow this guide you need to be a cluster admin.
 
 This document is based on OpenShift 4.17. See [Configuring and using logging in OpenShift Container Platform](https://docs.redhat.com/en/documentation/openshift_container_platform/4.17/html/logging/index).
 
 ## Install MinIO (optional)
-Loki requires an object store. So if you already have an object store available you can skip this chapter.
 
-### Create a New MinIO Project
+Loki requires an object store. You can skip this section if you already have an object store available.
 
-Create a new project (for example minio) :
+### Create a new MinIO project
+
+Create a new project, for example `minio`:
 
 ```shell
-$ oc new-project minio
+oc new-project minio
 ```
 
-### Create the MinIO Objects
+### Create the MinIO objects
 
 ```shell
 # create minio admin password
@@ -83,7 +84,7 @@ WebUI: http://10.128.4.14:44645 http://127.0.0.1:44645
 Docs: https://docs.min.io
 ```
 
-### Create a bucket and user for the Lokistack
+### Create a bucket and user for the LokiStack
 
 ```shell
 # create loki user secret
@@ -181,9 +182,9 @@ The configuration of the MinIO server is not HA. There is also a MinIO operator 
 
 Keep in mind if you have networkpolicies in use, allow the project openshift-logging access to the project minio on port 9000.
 
-## Install Operators: OpenShift Logging, Loki, Observability Operator
+## Install the OpenShift Logging, Loki and Observability operators
 
-Install the required operators
+Install the required operators:
 
 ```sh
 $ oc create -f operators/logging/operator-logging.yaml
@@ -220,12 +221,12 @@ NAME                                   DISPLAY                          VERSION 
 cluster-observability-operator.0.4.1   Cluster Observability Operator   0.4.1     cluster-observability-operator.0.3.2   Succeeded
 ```
 
-## Configure the LokiStack 
+## Configure the LokiStack
 
 Loki Operator supports AWS S3, Azure, GCS, MinIO, OpenShift Data Foundation, and Swift for the LokiStack object storage.
 
 If you are using a different object store you might need to define the secret differently.
-See https://github.com/grafana/loki/blob/main/operator/docs/lokistack/object_storage.md
+See [https://github.com/grafana/loki/blob/main/operator/docs/lokistack/object_storage.md]
 
 ```sh
 $ kubectl create secret generic lokistack-minio -n openshift-logging\
@@ -236,7 +237,7 @@ $ kubectl create secret generic lokistack-minio -n openshift-logging\
 secret/lokistack-minio created
 ```
 
-The endpoint consists= <svc>.<project>.svc:9000.
+The internal endpoint will match the pattern `<svc>.<project>.svc:9000`.
 
 Loki supports different preconfigured sizes.
 
@@ -245,11 +246,11 @@ The `1x.demo` configuration defines a single Loki deployment with minimal resour
 The `1x.pico` configuration defines a single Loki deployment with minimal resource and limit requirements, offering high availability (HA) support for all Loki components. This configuration is suited for deployments that do not require a single replication factor or auto-compaction.
 
 Other available sizes are `1x.extra-small`, `1x.small`, and `1x.medium`.
-See https://docs.redhat.com/en/documentation/openshift_container_platform/4.17/html-single/logging/index#log6x-loki-sizing_log6x-loki-6.1
+See [https://docs.redhat.com/en/documentation/openshift_container_platform/4.17/html-single/logging/index#log6x-loki-sizing_log6x-loki-6.1]
 
-In the operators/loki/lokistack.yaml the spec.size is defined as `1x.demo`. 
+In the operators/loki/lokistack.yaml the spec.size is defined as `1x.demo`.
 
-To save space the Lokistack retention period is set to 3 days. The maximum supported retention period is 30 days.
+To save space the LokiStack retention period is set to 3 days. The maximum supported retention period is 30 days.
 
 ```sh
 $ oc project openshift-logging
@@ -308,9 +309,10 @@ Status
 All components ready
 ```
 
-If you select another size than 1x.demo multiple pods for the Lokistack will be created.
+If you select another size than 1x.demo multiple pods for the LokiStack will be created.
 
-*LokiStack Components*
+### LokiStack components
+
 - Gateway: The gateway receives requests and redirects them to the appropriate container based on the request’s URL.
 - Distributor: The distributor service is responsible for handling incoming streams by clients.
 Ingester: The ingester service is responsible for writing log data to long-term storage backends (DynamoDB, S3, Cassandra, etc.) on the write path and returning log data for in-memory queries on the read path.
@@ -319,7 +321,7 @@ Ingester: The ingester service is responsible for writing log data to long-term 
 - Compactor: a specific service that reduces the index size by deduping the index and merging all the files to a single file per table.
 - Index Gateway: downloads and synchronizes the index from the Object Storage in order to serve index queries to the Queriers and Rulers over gRPC.
 
-## Configure the ClusterLogForwarder to the Lokistack
+## Configure the ClusterLogForwarder for the LokiStack
 
 ```sh
 $ oc create sa collector
@@ -388,7 +390,7 @@ collector-s858j   1/1     Running   0          3d19h
 collector-scv4z   1/1     Running   0          3d19h
 ```
 
-In this example, six collectors are running because one is on each node. 3 control plain nodes and 3 worker nodes.
+In this example, six collectors are running, one on each node, as we have 3 control plane nodes and 3 worker nodes.
 
 ## Install Cluster Observability Operator
 
@@ -403,12 +405,12 @@ Go to the OpenShift console and wait until the "refresh web console" pops up. Th
 
 ![](/images/refresh_webconsole.png)
 
-
 ## View Logs as Cluster Admin 
 
 As a user with admin rights you will find the logs under the `Administrator` menu and select `Observe / Logs`.
 
 In the top row a selection for the
+
 - content (search for a string within the log message)
 - namespace
 - pod
@@ -488,7 +490,7 @@ $ oc logs deploy/eventrouter -n openshift-logging
 
 ### View the collected events in the console
 
-Got to the Administrator view and select `infrastructure` and the pod `eventrouter-xxxx`.
+Go to the Administrator view and select `infrastructure` and the pod `eventrouter-xxxx`.
 
 ### Uninstall the Event Router
 
@@ -506,15 +508,15 @@ clusterrole.rbac.authorization.k8s.io "event-reader" deleted
 
 ## Access the Loki data with a Grafana dashboard
 
-The preferred option for accessing the data stored in Loki managed by loki-operator when running on OpenShift with the default OpenShift tenancy model is to go through the LokiStack gateway and do proper authentication against the authentication service included in OpenShift.
+For optimal access to data stored in Loki managed by loki-operator when deploying on OpenShift, utilizing the default OpenShift tenancy model, it's recommended to route through the LokiStack gateway. This approach ensures proper authentication via the built-in OpenShift authentication service.
 
-The configuration uses oauth-proxy to authenticate the user to the Grafana instance and forwards the token through Grafana to LokiStack’s gateway service. This enables the configuration to fully take advantage of the tenancy model, so that users can only see the logs of their applications and only admins can view infrastructure and audit logs.
+The configuration leverages oauth-proxy for user authentication against Grafana and subsequently forwards tokens from Grafana to LokiStack’s gateway service. This setup effectively harnesses the tenancy model, enabling users to view only their application logs while restricting access to infrastructure and audit logs for admins alone.
 
-As the open-source version of Grafana does not support to limit datasources to certain groups of users, all datasources (“application”, “infrastructure” and “audit”) will be visible to all users. The infrastructure and audit datasources will not yield any data for non-admin users.
+Please note that as open-source Grafana lacks functionality to limit datasources by user groups, all datasources (“application”, “infrastructure,” and “audit”) remain visible to every user. However, non-admin users will not receive data from the "infrastructure" and "audit" datasources.
 
-Keep in mind that the configuration points to the Loki Gateway server (GATEWAY_ADDRESS). This contains the Lokistack name (logging-loki). If you have changed, replace it with the correct name.
+Keep in mind that the configuration points to the Loki Gateway server (`GATEWAY_ADDRESS`). This contains the LokiStack name (`logging-loki`). Ensure you replace it with your correct LokiStack name in case you modified it.
 
-Deploy the Grafana server
+Now proceed with deploying the Grafana server:
 
 ```shell
 $ oc apply -f grafana/grafana_gateway_ocp_oauth.yaml
@@ -556,7 +558,7 @@ $ oc delete ClusterRoleBinding logging-grafana-auth-delegator
 clusterrolebinding.rbac.authorization.k8s.io "logging-grafana-auth-delegator" deleted
 ```
 
-## Uninstall Logging Stack
+## Uninstall the logging stack
 
 ```sh
 $ oc projct openshift-logging
@@ -617,9 +619,13 @@ customresourcedefinition.apiextensions.k8s.io "recordingrules.loki.grafana.com" 
 customresourcedefinition.apiextensions.k8s.io "rulerconfigs.loki.grafana.com" deleted
 ```
 
-## PodDisruptionBudget
+## Considerations around PodDisruptionBudget
 
-When you install the Loki stack with the `1x.demo` size you will get PodDisruptionBuget definition. But all pods are at the minimum availability.
+When deploying the LokiStack with the `1x.demo` configuration, a `PodDisruptionBudget` (PDB) definition is included by default. However, it's important to note that all pods are configured with the minimum availability setting.
+
+<!-- KI-generated This configuration ensures that during voluntary disruptions such as upgrades or maintenance, only a single pod from each replica set can be unavailable at any given time. While this setup maintains service continuity, it may not provide the highest level of fault tolerance for mission-critical applications.
+
+For enhanced reliability and resilience, consider adjusting the PDB settings according to your specific requirements and operational needs. -->
 
 ```sh
 $ oc get pdb -l app.kubernetes.io/instance=logging-loki 
@@ -633,9 +639,9 @@ logging-loki-querier          1               N/A               0               
 logging-loki-query-frontend   1               N/A               0                     4d17h
 ```
 
-see **Not able to drain a node when running LokiStack with size 1x.demo in RHOCP 4**, https://access.redhat.com/solutions/7058851
+Please take the following known issue into account related to the `1x.demo` deployment size: [Not able to drain a node when running LokiStack with size 1x.demo in RHOCP 4](https://access.redhat.com/solutions/7058851).
 
-As a workaround just delete the pdbs.
+As a workaround you can also just delete the PDBs:
 
 ```shell
 $ oc delete pdb -l app.kubernetes.io/instance=logging-loki
@@ -647,5 +653,5 @@ poddisruptionbudget.policy "logging-loki-querier" deleted
 poddisruptionbudget.policy "logging-loki-query-frontend" deleted
 ```
 
-This document: 
+This document:
 **[Github: rbaumgar/openshift-logging](https://github.com/rbaumgar/openshift-logging/blob/main/README.md)**
