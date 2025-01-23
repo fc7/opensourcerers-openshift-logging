@@ -175,12 +175,12 @@ $ oc get route minio-console -o jsonpath='{.spec.host}'
 minio-console-minio.apps.rbaumgar.demo.net
 ```
 
-When you use the MinIO server as a general-purpose object storage (s3) you should keep in mind, that you assign to other users similar policies (openshift-logging-access-policy).
-If you are using the default policies (readonly, readwrite and writeonly) those users can access all buckets on the server.
+When you use the MinIO server as a general-purpose object storage (s3), you should remember that you assign similar policies to other users (openshift-logging-access-policy).
+If you are using the default policies (readonly, readwrite, and writeonly) those users can access all buckets on the server.
 
 The configuration of the MinIO server is not HA. There is also a MinIO operator available.
 
-Keep in mind if you have networkpolicies in use, allow the project openshift-logging access to the project minio on port 9000.
+If you have networkpolicies in use, allow the project openshift-logging access to the project minio on port 9000.
 
 ## Install the OpenShift Logging, Loki and Observability operators
 
@@ -205,7 +205,7 @@ $ oc create -f operators/coo/operator-coo.yaml
 subscription.operators.coreos.com/cluster-observability-operator created
 ```
 
-Check that all operators are running and phase is *Succeeded*. This may take some minutes.
+Check that all operators are running and the phase is *Succeeded*. This may take some minutes.
 
 ```sh
 $ oc get csv -n openshift-logging cluster-logging.v6.1.0
@@ -241,9 +241,9 @@ The internal endpoint will match the pattern `<svc>.<project>.svc:9000`.
 
 Loki supports different preconfigured sizes.
 
-The `1x.demo` configuration defines a single Loki deployment with minimal resource and limit requirements, and no high availability (HA) support for all Loki components. This configuration is suited for a demo environment.
+The `1x.demo` configuration defines a single Loki deployment with minimal resource and limit requirements and no high availability (HA) support for all Loki components. This configuration is suited for a demo environment.
 
-The `1x.pico` configuration defines a single Loki deployment with minimal resource and limit requirements, offering high availability (HA) support for all Loki components. This configuration is suited for deployments that do not require a single replication factor or auto-compaction.
+The `1x.pico` configuration defines a single Loki deployment with minimal resource and limit requirements. It offers high availability (HA) support for all Loki components. This configuration is suited for deployments that do not require a single replication factor or auto-compaction.
 
 Other available sizes are `1x.extra-small`, `1x.small`, and `1x.medium`.
 See [https://docs.redhat.com/en/documentation/openshift_container_platform/4.17/html-single/logging/index#log6x-loki-sizing_log6x-loki-6.1]
@@ -319,7 +319,7 @@ Ingester: The ingester service is responsible for writing log data to long-term 
 - Query Frontend:  internally performs some query adjustments and holds queries in an internal queue.
 - Querier: handles queries using the LogQL query language, fetching logs both from the ingesters and from long-term storage.
 - Compactor: a specific service that reduces the index size by deduping the index and merging all the files to a single file per table.
-- Index Gateway: downloads and synchronizes the index from the Object Storage in order to serve index queries to the Queriers and Rulers over gRPC.
+- Index Gateway: downloads and synchronizes the index from the Object Storage to serve index queries to the Queriers and Rulers over gRPC.
 
 ## Configure the ClusterLogForwarder for the LokiStack
 
@@ -401,13 +401,13 @@ $ oc apply -f operators/coo/uiplugin-logging.yaml
 uiplugin.observability.openshift.io/logging created
 ```
 
-Go to the OpenShift console and wait until the "refresh web console" pops up. Then the UIPlugin is available.
+Go to the OpenShift console and wait until the "refresh web console" option appears. Then, the UIPlugin will be available.
 
 ![](/images/refresh_webconsole.png)
 
 ## View Logs as Cluster Admin 
 
-As a user with admin rights you will find the logs under the `Administrator` menu and select `Observe / Logs`.
+As a user with admin rights, you will find the logs under the `Administrator` menu and select `Observe / Logs`.
 
 In the top row a selection for the
 
@@ -416,7 +416,7 @@ In the top row a selection for the
 - pod
 - container
 - severity (critical, error, warning, debug, info, trace, and unknown)
-- log type (application, infrastructure ,and audit)
+- log type (application, infrastructure, and audit)
 
 On the top right is a selection of the time range and the refresh interval.
 
@@ -439,9 +439,40 @@ With the *Show Query* button you can create your query.
 
 Some examples:
 
-- { log_type="infrastructure", kubernetes_namespace_name="openshift-logging" } |= \`grafana\` | json: all log entries from the namespace `openshift-loggin` with the content `grafana`
+```
+{ log_type="infrastructure", kubernetes_namespace_name="openshift-logging" } |= `grafana` | json
+```
+all log entries from the namespace `openshift-logging` with the content `grafana`
 
-- { log_type="infrastructure"} |= \`Started crio\` | json | log_source="node" | hostname="master-0": all log entries from the node log from the hostname `master-0` with the content `Started crio`
+```
+{ log_type="infrastructure"} |= \`Started crio\` | json | log_source="node" | hostname="master-0"
+```
+all log entries from the node log from the hostname `master-0` with the content `Started crio`
+
+```
+{kubernetes_namespace_name="demo"} | json | line_format `{{.kubernetes_pod_name}} {{.message}}`
+```
+all log entries from namespace `demo` with pod name and message
+
+```
+{ log_type="audit" } | json | objectRef_resource ="virtualmachines", verb != "get", verb != "watch", verb != "patch", verb != "list", user_username !~ "system:serviceaccount:.*" | line_format `{{ if eq .verb "create" }} create {{ else if eq .verb "delete" }} delete {{else}} {{ .objectRef_subresource }} {{end}} {{ .objectRef_name }} ({{ .objectRef_namespace  }}) by {{ .user_username  }}`
+```
+create a report on who started, stopped, or changed a Virtualmachine
+![](images/VM_startstop.png)
+
+
+The following labels are available in the application and infrastructure log:
+- kubernetes_container_name
+- kubernetes_host
+- kubernetes_namespace_name
+- kubernetes_pod_name
+- log_type
+
+The following labels are available in the audit log:
+- kubernetes_host
+- log_type
+
+You will find more details about Loki LoqQL [ Grafana Loki -> Query -> Log queries](https://grafana.com/docs/loki/latest/query/log_queries/)
 
 ## View Logs as User
 
@@ -459,7 +490,7 @@ All messages in this namespace are displayed.
 
 If you want to persist the events of the OpenShift platform you can use the Event Router.
 
-The OpenShift Container Platform Event Router is a pod that watches Kubernetes events and logs them for collection by the logging. You must manually deploy the Event Router.
+The OpenShift Container Platform Event Router is a pod that watches Kubernetes events and logs them for collection by the logging. You have to deploy the Event Router manually.
 
 The Event Router collects events from all projects and writes them to STDOUT. The collector then forwards those events to the store defined in the ClusterLogForwarder custom resource (CR).
 
